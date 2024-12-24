@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Пазлы с сюрпризом</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #fdf6e3;
+            color: #5e4631;
+        }
+        .title {
+            text-align: center;
+            background: #f4a261;
+            color: white;
+            padding: 20px;
+            font-size: 32px;
+            box-shadow: 0 4px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #ffe8d6;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid #f4a261;
+            border-radius: 5px;
+            font-size: 16px;
+            background-color: #fce4d0;
+            color: #5e4631;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #e76f51;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #d45d42;
+        }
+        video {
+            display: block;
+            margin: 10px auto;
+            max-width: 100%;
+        }
+        .hidden {
+            display: none;
+        }
+        .full-screen-message {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            color: red;
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        /* Враждебная тема */
+        .hostile {
+            background: #2c0000;
+            color: #f4f1ea;
+        }
+        .hostile .title {
+            background: #8b0000;
+            color: #f4f1ea;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        .hostile .container {
+            background: #440000;
+            box-shadow: 0 0 15px #ff0000;
+        }
+        .hostile input[type="text"] {
+            background: #550000;
+            color: #f4f1ea;
+            border: 2px solid #8b0000;
+        }
+        .hostile button {
+            background-color: #8b0000;
+        }
+        .hostile button:hover {
+            background-color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div id="title" class="title">Добро пожаловать на игру «Пазлы с сюрпризом»</div>
+    <div class="container">
+        <div id="quiz-area">
+            <h2>Загадка:</h2>
+            <p id="current-question">Что растет вверх корнем?</p>
+            <input type="text" id="answer" placeholder="Ваш ответ">
+            <button onclick="checkAnswer()">Проверить</button>
+            <button onclick="toggleMistakeVideo()">Отключить видео при ошибке</button>
+        </div>
+        <div id="history">
+            <!-- История вопросов -->
+        </div>
+        <video id="mistake-video" class="hidden">
+            <source src="mistake.mp4" type="video/mp4">
+            Ваш браузер не поддерживает видео.
+        </video>
+        <div id="full-screen-message" class="full-screen-message">ТЫ НЕ ДОЛЖЕН ЗДЕСЬ НАХОДИТЬСЯ</div>
+    </div>
+    <script>
+        const normalQuestions = [
+            { question: "Что растет вверх корнем?", answer: "морковь", video: "video1.mp4" },
+            { question: "Что можно увидеть с закрытыми глазами?", answer: "сон", video: "video2.mp4" },
+            { question: "Какой месяц короче всех?", answer: "февраль", video: "video3.mp4" },
+            { question: "Что всегда перед вами, но его нельзя увидеть?", answer: "будущее", video: "video4.mp4" },
+            { question: "Какие камни нельзя найти в реке?", answer: "сухие", video: "video5.mp4" }
+        ];
+        const hostileQuestions = [
+            { question: "Ты уверен, что хочешь продолжить?", hostileMessage: "Ты осмелился отвечать на это?", answer: "да" },
+            { question: "Кто смотрит на тебя сейчас?", hostileMessage: "Ты думаешь, это шутка?", answer: "никто" },
+            { question: "Почему ты думаешь, что это игра?", hostileMessage: "Ошибки стоят слишком дорого...", answer: "не знаю" },
+            { question: "Хочешь вернуться?", hostileMessage: "Вернуться нельзя!", answer: "да" },
+            { question: "Ты готов к последствиям?", hostileMessage: "Последствия ближе, чем ты думаешь...", answer: "да" }
+        ];
+
+        let currentIndex = 0;
+        let hostileMode = false;
+        let playMistakeVideo = true;
+        let currentQuestions = normalQuestions;
+
+        function checkAnswer() {
+            const userAnswer = document.getElementById("answer").value.trim().toLowerCase();
+            const title = document.getElementById("title");
+
+            // Очищаем поле ввода после ответа
+            document.getElementById("answer").value = '';
+
+            if (!hostileMode && userAnswer === "ключ") {
+                activateHostileMode();
+                return;
+            }
+
+            const currentQuestion = currentQuestions[currentIndex];
+
+            if (userAnswer === currentQuestion.answer) {
+                if (hostileMode) {
+                    title.textContent = currentQuestion.hostileMessage;
+                } else {
+                    title.textContent = "Молодец, правильный ответ!";
+                    setTimeout(() => {
+                        title.textContent = "Добро пожаловать на игру «Пазлы с сюрпризом»";
+                    }, 3000);
+                }
+                addHistory(currentQuestion.question, userAnswer, hostileMode ? null : currentQuestion.video);
+                currentIndex = (currentIndex + 1) % currentQuestions.length;
+                updateCurrentQuestion();
+            } else {
+                if (hostileMode) {
+                    showFullScreenMessage();
+                } else if (playMistakeVideo) {
+                    showMistakeVideo();
+                }
+            }
+        }
+
+        function activateHostileMode() {
+            document.body.classList.add("hostile");
+            const title = document.getElementById("title");
+            title.textContent = "Ты не должен был сюда попасть...";
+            hostileMode = true;
+            currentIndex = 0;
+            currentQuestions = hostileQuestions;
+            document.getElementById("history").innerHTML = "";
+            updateCurrentQuestion();
+        }
+
+        function updateCurrentQuestion() {
+            const currentQuestion = currentQuestions[currentIndex];
+            document.getElementById("current-question").textContent = currentQuestion.question;
+        }
+
+        function addHistory(question, answer, video) {
+            const history = document.getElementById("history");
+            const div = document.createElement("div");
+            div.innerHTML = `<p><strong>${question}</strong>: ${answer}</p>`;
+            if (video) {
+                const vid = document.createElement("video");
+                vid.src = video;
+                vid.controls = true;
+                div.appendChild(vid);
+            }
+            history.appendChild(div);
+        }
+
+        function showFullScreenMessage() {
+            const message = document.getElementById("full-screen-message");
+            message.style.display = "flex";
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        }
+
+        function toggleMistakeVideo() {
+            playMistakeVideo = !playMistakeVideo;
+            alert(playMistakeVideo ? "Видео при ошибке включено" : "Видео при ошибке отключено");
+        }
+
+        function showMistakeVideo() {
+            const video = document.getElementById("mistake-video");
+            video.classList.remove("hidden");
+            video.play();
+            setTimeout(() => {
+                video.pause();
+                video.classList.add("hidden");
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
